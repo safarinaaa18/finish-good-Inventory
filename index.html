@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Finished Goods Inventory</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finished Goods Inventory (Firebase Version)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -13,6 +13,10 @@
     #summary { margin-top: 10px; font-weight: bold; }
     h2 span { font-size: 16px; font-weight: normal; color: #444; }
   </style>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -20,19 +24,19 @@
 
 <form id="inventoryForm">
   <label>Date:
-    <input type="date" id="date" required>
+    <input type="date" id="date" required />
   </label>
   <label>Item Name:
-    <input type="text" id="item" required>
+    <input type="text" id="item" required />
   </label>
   <label>Output Packing:
-    <input type="number" id="packing" required>
+    <input type="number" id="packing" required />
   </label>
   <label>Reject:
-    <input type="number" id="reject" required>
+    <input type="number" id="reject" required />
   </label>
   <label>Output Loading:
-    <input type="number" id="loading" required>
+    <input type="number" id="loading" required />
   </label>
   <button type="submit">Add Item</button>
 </form>
@@ -53,11 +57,24 @@
   <tbody></tbody>
 </table>
 
-<div id="summary">
-  Total Reject: 0 | Total Selisih: 0
-</div>
+<div id="summary">Total Reject: 0 | Total Selisih: 0</div>
 
 <script>
+  // TODO: Ganti config ini dengan milikmu dari Firebase Console
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+  };
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
   const form = document.getElementById('inventoryForm');
   const tableBody = document.querySelector('#inventoryTable tbody');
   const summaryDiv = document.getElementById('summary');
@@ -73,37 +90,43 @@
 
   function loadFromStorage(dateFilter = null) {
     tableBody.innerHTML = '';
-    const data = JSON.parse(localStorage.getItem('inventoryData')) || [];
-    const filteredData = dateFilter
-      ? data.filter(item => item.date === dateFilter)
-      : data;
-    filteredData.forEach(item => addRow(item));
-    updateSummary();
-    dateDisplay.textContent = dateFilter || 'Not selected';
+    if (!dateFilter) {
+      dateDisplay.textContent = 'Not selected';
+      summaryDiv.textContent = 'Total Reject: 0 | Total Selisih: 0';
+      return;
+    }
+    dateDisplay.textContent = dateFilter;
+
+    db.ref('inventoryData/' + dateFilter).once('value', snapshot => {
+      const dataObj = snapshot.val();
+      if (!dataObj) {
+        updateSummary();
+        return;
+      }
+      const dataArr = Object.values(dataObj);
+      dataArr.forEach(item => addRow(item));
+      updateSummary();
+    });
   }
 
   function saveToStorage() {
-    const rows = document.querySelectorAll('#inventoryTable tbody tr');
-    const data = JSON.parse(localStorage.getItem('inventoryData')) || [];
-
-    // Remove old data for same date
     const date = document.getElementById('date').value;
-    const filteredData = data.filter(item => item.date !== date);
+    if (!date) return;
 
-    // Add new data from current view
-    const newData = [];
-    rows.forEach(row => {
+    const rows = document.querySelectorAll('#inventoryTable tbody tr');
+    const newData = {};
+
+    rows.forEach((row, idx) => {
       const cols = row.querySelectorAll('td');
-      newData.push({
-        date,
+      newData[idx] = {
         item: cols[0].textContent,
         packing: cols[1].textContent,
         reject: cols[2].textContent,
-        loading: cols[4].textContent
-      });
+        loading: cols[4].textContent,
+      };
     });
 
-    localStorage.setItem('inventoryData', JSON.stringify([...filteredData, ...newData]));
+    db.ref('inventoryData/' + date).set(newData);
   }
 
   function updateSummary() {
