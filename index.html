@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Finished Goods Inventory (Firebase Version)</title>
+  <title>Finished Goods Inventory (LocalStorage Version)</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -13,10 +13,6 @@
     #summary { margin-top: 10px; font-weight: bold; }
     h2 span { font-size: 16px; font-weight: normal; color: #444; }
   </style>
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -60,21 +56,6 @@
 <div id="summary">Total Reject: 0 | Total Selisih: 0</div>
 
 <script>
-  // TODO: Ganti config ini dengan milikmu dari Firebase Console
-  const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-    databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
   const form = document.getElementById('inventoryForm');
   const tableBody = document.querySelector('#inventoryTable tbody');
   const summaryDiv = document.getElementById('summary');
@@ -97,16 +78,14 @@
     }
     dateDisplay.textContent = dateFilter;
 
-    db.ref('inventoryData/' + dateFilter).once('value', snapshot => {
-      const dataObj = snapshot.val();
-      if (!dataObj) {
-        updateSummary();
-        return;
-      }
-      const dataArr = Object.values(dataObj);
-      dataArr.forEach(item => addRow(item));
+    const dataStr = localStorage.getItem('inventoryData_' + dateFilter);
+    if (!dataStr) {
       updateSummary();
-    });
+      return;
+    }
+    const dataArr = JSON.parse(dataStr);
+    dataArr.forEach(item => addRow(item));
+    updateSummary();
   }
 
   function saveToStorage() {
@@ -114,19 +93,19 @@
     if (!date) return;
 
     const rows = document.querySelectorAll('#inventoryTable tbody tr');
-    const newData = {};
+    const newData = [];
 
-    rows.forEach((row, idx) => {
+    rows.forEach(row => {
       const cols = row.querySelectorAll('td');
-      newData[idx] = {
+      newData.push({
         item: cols[0].textContent,
         packing: cols[1].textContent,
         reject: cols[2].textContent,
         loading: cols[4].textContent,
-      };
+      });
     });
 
-    db.ref('inventoryData/' + date).set(newData);
+    localStorage.setItem('inventoryData_' + date, JSON.stringify(newData));
   }
 
   function updateSummary() {
